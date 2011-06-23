@@ -22,6 +22,8 @@ class BLSCI_AD_Fix extends ADIntegrationPlugin {
 	function __construct() {
 		global $wp_version, $wpmu_version, $wpdb, $wpmuBaseTablePrefix;
 
+		$wpmu_version = $wp_version;
+
 		if (!defined('IS_WPMU')) {
 			define( 'IS_WPMU', is_multisite() );
 		}
@@ -131,6 +133,58 @@ class BLSCI_AD_Fix extends ADIntegrationPlugin {
 // Important! Instantiates the new class, overriding the previous plugin
 $AD_Integration_plugin = new BLSCI_AD_Fix;
 
+/**
+ * An epic hack.
+ *
+ * This function catches form requests sent by the plugin to the wrong place (options.php). It then
+ * reassembles the original $_POST parameters (ie the new settings), and uses wp_remote_post() to
+ * save the settings to the correct page. (The cookies are there so that you don't get a 500 when
+ * you try to access the admin pages as an unauthenticated post.) Then the user is redirected back
+ * to the original dashboard panel.
+ *
+ * It feels so wrong, yet it feels so right.
+ *
+ * @package BLSCI AD
+ * @since 1.0
+ */
+function blsciad_options_save() {
+	global $wp_query, $wp;
+	
+	// Catch attempts to send requests to the plugin page
+	if ( isset( $wp_query->query['pagename'] ) && 'wp-admin/network/options.php' == $wp_query->query['pagename'] ) {
+		
+		// Triple-check that this is our request
+		if ( !empty( $_POST['option_page'] ) && 'ADI-server-settings' != $_POST['option_page'] )
+			return;
+		
+		// Send to the correct place
+		$base = is_multisite() ? network_admin_url( 'settings.php' ) : admin_url( 'options.php' );
+		$redirect = add_query_arg( 'page', 'active-directory-integration/ad-integration.php', $base );
+		
+		$cookies = array();
+		foreach( $_COOKIE as $key => $value ) {
+			$cookies[] = new WP_Http_Cookie( array( 'name' => $key, 'value' => $value ) );
+		}
+		
+		$args = array( 'body' => $_POST, 'cookies' => $cookies );
+		
+		$test = wp_remote_post( $redirect, $args );
+		
+		wp_redirect( $redirect );
+		
+	}
+}
+add_action( 'wp', 'blsciad_options_save' );
+
+function blsciad_test_catch() {
+	global $wp_query, $ad_integration_plugin_path;
+	
+	if ( isset( $wp_query->query['pagename'] ) && 'wp-content/mu-plugins/active-directory-integration/test.php' == $wp_query->query['pagename'] ) {
+		include ( ADBB_INCLUDES_PATH . 'test.php' );
+		die();
+	}
+}
+add_action( 'wp', 'blsciad_test_catch' );
 
 // Provide the deprecated is_site_admin()
 if ( !function_exists( 'is_site_admin' ) ) :
