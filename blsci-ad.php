@@ -17,6 +17,10 @@ define( 'ADBB_INCLUDES_PATH', ADBB_INSTALL_PATH . 'includes/' );
 
 // Include the relevant pieces
 include( ADBB_INCLUDES_PATH . 'plugin-fix.php' ); // Fixes for the AD Integration plugin
+include( ADBB_INCLUDES_PATH . 'class-adldap.php' ); // The AD API class
 
+if ( is_network_admin() || is_admin() ) {
+	include( ADBB_INCLUDES_PATH . 'admin.php' );
+}
 
 ?>
