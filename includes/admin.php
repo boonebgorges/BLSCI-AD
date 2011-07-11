@@ -147,9 +147,11 @@ function blsciad_migrate_step() {
 	echo '<p>' . sprintf( 'Currently migrating users %1$d through %2$d of %3$d. This page will automatically refresh in a few seconds.', (int)$start, (int)$end, (int)$total_users ) . '</p>';
 	
 	echo '<ul>';
+	$counter = $start;
 	foreach( (array)$users as $user_id ) {
-		echo '<li>User ' . $user_id . ': ';
+		echo '<li>(' . $counter . ') User #' . $user_id . ': ';
 		$migrate_status = blsciad_migrate_user( $user_id );
+		echo ' ';
 		switch ( $migrate_status ) {
 			case 'not_found' :
 				echo 'User not found in AD';
@@ -169,6 +171,7 @@ function blsciad_migrate_step() {
 				break;
 		}
 		echo '</li>';
+		$counter++;
 	}
 	echo '</ul>';
 	
@@ -203,6 +206,9 @@ function blsciad_migrate_user( $user_id ) {
 	
 	// Pull up the userdata so that we can get the email address
 	$user = get_userdata( $user_id );
+	
+	// This is a bit hackish. Echo the user display name and login
+	echo '<strong>' . $user->display_name . ' (' . $user->user_login . ')</strong>';
 	
 	// Try to find a user with this email address
 	$ad_user = $AD_Integration_plugin->adldap->find_user_by_email( $user->user_email );
