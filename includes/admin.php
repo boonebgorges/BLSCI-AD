@@ -51,6 +51,11 @@ function blsciad_network_panel_render() {
 			// Did you mean to do this?
 			check_admin_referer( 'blsciad-migrate' );
 			
+			// Attempt to bind the AD server
+			global $AD_Integration_plugin;
+			
+			$AD_Integration_plugin->login( $_POST['blsci-ad-username'], $_POST['blsci-ad-password'] );
+			
 			// Start the migration
 			blsciad_migrate_step();
 			return;
@@ -83,6 +88,12 @@ function blsciad_network_panel_render() {
 	
 	<p>
 		<label for="blsci-confirm"><input type="checkbox" name="blsci-confirm" /> OK, I understand what I'm doing</label>
+	</p>
+	
+	<p>
+		The plugin needs to use a set of valid AD credentials to do its work. Please enter a working username and password below before hitting Migrate.<br />
+		<label for="blsci-ad-username"><input type="text" name="blsci-ad-username" /> Username</label><br />
+		<label for="blsci-ad-password"><input type="password" name="blsci-ad-password" /> Password</label>
 	</p>
 	
 	<p>
@@ -154,19 +165,67 @@ function blsciad_migrate_step() {
 	echo $migration_step_base;
 }
 
-function blsciad_migrate_user( $user_id ) {
+function blsciad_migrate_user( $user_id ) {	
+	global $AD_Integration_plugin;
+	
 	if ( !$user_id )
 		return;
 	
 	// Never migrate the main site admin
 	if ( 1 == $user_id )
 		return;
+
+	$ad_user = false;
 	
+	// Pull up the userdata so that we can get the email address
 	$user = get_userdata( $user_id );
-	var_dump( $user );
 	
-	$adapi = new BLSCI_adLDAP;
-	var_dump( $adapi ); die();
+	// Try to find a user with this email address
+	$ad_user = $AD_Integration_plugin->adldap->find_user_by_email( $user->user_email );
+	
+	// Couldn't find one. Let's look for exact matches by name
+	if ( !$ad_user ) {		
+		if ( $ad_user = $AD_Integration_plugin->adldap->find_user_by_email( $user->display_name ) ) {
+			$found_method = 'name';
+		}
+	} else {
+		$found_method = 'email';
+	}
+	
+	// If we haven't found an AD user by now, we're out of options.
+	if ( !$ad_user ) {
+		$AD_Integration_plugin->log_api_error( $user, 'not_found' );
+		return;
+	}	
+	
+	// Now that we've got an AD user name, let's do some conversion
+	
+	// Get the AD username from the returned data
+	$ad_user_values = array_values( $ad_user );
+	$ad_username = $ad_user_values[0];
+	
+	// If the AD username is the same as the WP username, we don't need to change anything,
+	// though we do have to mark the user as successfully transfered
+	$migration_args = array(
+		'wp_user_id' 	    => $user_id,
+		'ad_username'	    => $ad_username,
+		'wp_display_name'   => $user->display_name,
+		'date_registered'   => false,
+		'date_last_active'  => false,
+		'date_attempted'    => time(),
+		'migration_status'  => 'success'
+	);
+	
+	$migration = new BLSCI_AD_Migration( $migration_args );
+	$migration->mark_as_success();
+	
+	var_dump( $migration );
+	
+	var_dump( $ad_username );
+	
+	var_dump( $ad_user );
+	var_dump( $found_method );
+        die();
 }
 
 ?>

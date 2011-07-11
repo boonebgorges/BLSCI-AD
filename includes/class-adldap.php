@@ -2,7 +2,7 @@
 
 if ( class_exists( 'adLDAP' ) ) :
 
-class BLSCI_adLDAP extends adLDAP {
+class BLSCI_adLDAP extends adLDAP {	
 	public function find_user_by( $data, $method ) {
 		$method_by = '';
 		
@@ -31,6 +31,8 @@ class BLSCI_adLDAP extends adLDAP {
 		$sr = ldap_search( $this->_conn, $this->_base_dn, $filter, $fields );
 		$entries = ldap_get_entries( $this->_conn, $sr );
 	
+		$include_desc = true;
+	
 		$users_array = array();
 		for ($i=0; $i<$entries["count"]; $i++){
 		    if ($include_desc && strlen($entries[$i]["displayname"][0])>0){
@@ -41,8 +43,10 @@ class BLSCI_adLDAP extends adLDAP {
 			array_push($users_array, $entries[$i]["samaccountname"][0]);
 		    }
 		}
-		if ($sorted){ asort($users_array); }
-		return ($users_array);
+		
+		asort( $users_array );
+		
+		return( $users_array );
 	}
 	
 	public function find_user_by_name( $name ) {

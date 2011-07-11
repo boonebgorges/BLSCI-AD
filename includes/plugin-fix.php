@@ -15,6 +15,7 @@ if ( !file_exists( $ad_integration_plugin_path . 'ad-integration.php' ) )
 	return;
 
 class BLSCI_AD_Fix extends ADIntegrationPlugin {
+	var $wp_errors = array();
 
 	/**
 	 * Overrides the default constructor, to implement WP 3.1 network fixes
@@ -127,6 +128,25 @@ class BLSCI_AD_Fix extends ADIntegrationPlugin {
 				add_options_page( 'Active Directory Integration', 'Active Directory Integration', 'manage_options', $ad_integration_plugin_path . 'ad-integration.php', array(&$this, '_display_options_page') );
 			}
 		}
+	}
+	
+	function login( $username, $password ) {
+		$this->adldap = @new BLSCI_adLDAP( array(
+			"base_dn" => $this->_base_dn, 
+			"domain_controllers" => explode(';', $this->_domain_controllers),
+			"ad_port" => $this->_port, // AD port
+			"use_tls" => $this->_use_tls, // secure?
+			"network_timeout" => $this->_network_timeout, // network timeout
+			"ad_username" => $username,
+			"ad_password" => $password
+		) );
+	}
+	
+	function log_api_error( $wp_user, $error_data ) {
+		$this->wp_errors[] = array(
+			'wp_user'    => $wp_user,
+			'error_data' => $error_data
+		);
 	}
 }
 

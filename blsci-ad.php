@@ -16,6 +16,7 @@ define( 'ADBB_INSTALL_PATH', dirname( __FILE__ ) . '/' );
 define( 'ADBB_INCLUDES_PATH', ADBB_INSTALL_PATH . 'includes/' );
 
 // Include the relevant pieces
+include( ADBB_INCLUDES_PATH . 'schema.php' ); // Sets up the custom post type, etc
 include( ADBB_INCLUDES_PATH . 'plugin-fix.php' ); // Fixes for the AD Integration plugin
 include( ADBB_INCLUDES_PATH . 'class-adldap.php' ); // The AD API class
 
