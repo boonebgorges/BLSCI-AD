@@ -62,6 +62,10 @@ class BLSCI_AD_Migration {
 		}
 	}
 	
+	function set_ad_username( $username ) {
+		$this->ad_username = $username;
+	}
+	
 	function mark_as_success() {
 		// Make sure that the migration status is a success (is by default - double check)
 		$this->migration_status = 'success';
@@ -70,6 +74,11 @@ class BLSCI_AD_Migration {
 	
 	function mark_as_failure( $reason = 'no_user_found' ) {
 		$this->migration_status = $reason;
+		$this->save();
+	}
+	
+	function mark_as_unchanged() {
+		$this->migration_status = 'unchanged';
 		$this->save();
 	}
 	

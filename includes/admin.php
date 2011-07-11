@@ -144,9 +144,33 @@ function blsciad_migrate_step() {
 	
 	$users = $wpdb->get_col( $users_sql );
 	
+	echo '<p>' . sprintf( 'Currently migrating users %1$d through %2$d of %3$d. This page will automatically refresh in a few seconds.', (int)$start, (int)$end, (int)$total_users ) . '</p>';
+	
+	echo '<ul>';
 	foreach( (array)$users as $user_id ) {
-		blsciad_migrate_user( $user_id );
+		echo '<li>User ' . $user_id . ': ';
+		$migrate_status = blsciad_migrate_user( $user_id );
+		switch ( $migrate_status ) {
+			case 'not_found' :
+				echo 'User not found in AD';
+				break;
+			case 'unknown_failure' :
+				echo 'Unknown failure';
+				break;
+			case 'unchanged' :
+				echo 'This user has already been migrated';
+				break;
+			case 'located_by_name' :
+				echo 'We couldn\'t find a user whose email address matches, but we found a matching display name. The user has not been migrated, but the possible match has been recorded for you to look at later.';
+				break;
+			case 'success' :
+			default :
+				echo 'Success!';
+				break;
+		}
+		echo '</li>';
 	}
+	echo '</ul>';
 	
 	// Do the refresh javascript
 	$url = $migration_step_base;
@@ -166,7 +190,7 @@ function blsciad_migrate_step() {
 }
 
 function blsciad_migrate_user( $user_id ) {	
-	global $AD_Integration_plugin;
+	global $AD_Integration_plugin, $wpdb;
 	
 	if ( !$user_id )
 		return;
@@ -183,32 +207,8 @@ function blsciad_migrate_user( $user_id ) {
 	// Try to find a user with this email address
 	$ad_user = $AD_Integration_plugin->adldap->find_user_by_email( $user->user_email );
 	
-	// Couldn't find one. Let's look for exact matches by name
-	if ( !$ad_user ) {		
-		if ( $ad_user = $AD_Integration_plugin->adldap->find_user_by_email( $user->display_name ) ) {
-			$found_method = 'name';
-		}
-	} else {
-		$found_method = 'email';
-	}
-	
-	// If we haven't found an AD user by now, we're out of options.
-	if ( !$ad_user ) {
-		$AD_Integration_plugin->log_api_error( $user, 'not_found' );
-		return;
-	}	
-	
-	// Now that we've got an AD user name, let's do some conversion
-	
-	// Get the AD username from the returned data
-	$ad_user_values = array_values( $ad_user );
-	$ad_username = $ad_user_values[0];
-	
-	// If the AD username is the same as the WP username, we don't need to change anything,
-	// though we do have to mark the user as successfully transfered
 	$migration_args = array(
 		'wp_user_id' 	    => $user_id,
-		'ad_username'	    => $ad_username,
 		'wp_display_name'   => $user->display_name,
 		'date_registered'   => false,
 		'date_last_active'  => false,
@@ -217,15 +217,62 @@ function blsciad_migrate_user( $user_id ) {
 	);
 	
 	$migration = new BLSCI_AD_Migration( $migration_args );
-	$migration->mark_as_success();
 	
-	var_dump( $migration );
+	// Couldn't find one. Let's look for exact matches by name
+	if ( !$ad_user ) {		
+		if ( $ad_user = $AD_Integration_plugin->adldap->find_user_by_email( $user->display_name ) ) {
+			$found_method = 'name';
+			$migration_args['migration_status'] = 'located_by_name';
+			$migration->mark_as_failure( 'located_by_name' );
+			return 'located_by_name';
+		}
+	} else {
+		$found_method = 'email';
+	}
 	
-	var_dump( $ad_username );
+	// If we haven't found an AD user by now, we're out of options.
+	if ( !$ad_user ) {
+		$AD_Integration_plugin->log_api_error( $user, 'not_found' );
+		$migration->mark_as_failure();
+		return 'not_found';
+	}	
 	
-	var_dump( $ad_user );
-	var_dump( $found_method );
-        die();
+	// Now that we've got an AD user name, let's do some conversion
+	
+	// Get the AD username from the returned data
+	$ad_user_values = array_keys( $ad_user );
+	$ad_username = $ad_user_values[0];
+	
+	$migration->set_ad_username( $ad_username );
+	
+	// Get the rest of the userinfo
+	$ad_userinfo = $AD_Integration_plugin->adldap->user_info( $ad_username );
+	
+	// Get the user email out of this info (this is their primary login for WP)
+	$ad_email = isset( $ad_userinfo[0]['mail'][0] ) ? $ad_userinfo[0]['mail'][0] : false;
+	
+	// Stash the old WP username in a usermeta for later use
+	update_user_meta( $user_id, 'blsci_deprecated_wp_user_login', $user->user_login );
+	update_user_meta( $user_id, 'blsci_deprecated_wp_user_nicename', $user->user_nicename );
+	
+	// Check to see if the username needs changing
+	if ( $user->user_login == $ad_email ) {
+		$migration->mark_as_unchanged();
+		return 'unchanged';
+	}
+	
+	// Now we can do the migration itself
+	$sql = $wpdb->prepare( "UPDATE {$wpdb->users} SET user_login = %s, user_nicename = %s WHERE ID = %d;", $ad_email, sanitize_title( $ad_email ), (int)$user_id );
+	$result = $wpdb->query( $sql );
+	
+	// Record as a success or a failure
+	if ( $result ) {
+		$migration->mark_as_success();
+	} else {
+		$migration->mark_as_failure( 'unknown_failure' );
+	}
+	
+	return $result ? 'success' : 'unknown_failure';
 }
 
 ?>
