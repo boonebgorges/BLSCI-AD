@@ -37,25 +37,32 @@ class BLSCI_AD_Migration {
 	var $date_attempted;
 	var $migration_status;
 	
+	var $order;
+	var $orderby;
+	var $posts_per_page;
+	var $paged;
+	
+	var $migrations;
+	
 	var $post_id = false;
 
-	function __construct( $args ) {
+	function __construct( $args = array() ) {
 		$defaults = array(
 			'wp_user_id' 	    => false,
 			'ad_username'	    => false,
 			'wp_display_name'   => false,
 			'date_registered'   => false,
 			'date_last_active'  => false,
-			'date_attempted'    => time(),
-			'migration_status'  => 'success'
+			'date_attempted'    => false,
+			'migration_status'  => 'success',
+			'order'		    => 'ASC',
+			'orderby'	    => 'wp_username',
+			'posts_per_page'    => 20,
+			'paged'		    => 1
 		);
 		
 		$r = wp_parse_args( $args, $defaults );
 		extract( $r );
-		
-		// We need a WP user id to continue
-		if ( !$wp_user_id )
-			return;
 		
 		foreach( $r as $key => $value ) {
 			$this->{$key} = $value;		
@@ -152,6 +159,31 @@ class BLSCI_AD_Migration {
 		}
 		
 		update_post_meta( $this->post_id, 'blsci_date_registered', $this->date_registered );
+	}
+	
+	function have_posts() {
+		if ( !isset( $this->migrations ) ) {
+			$this->setup_query();
+		}
+		
+		return $this->migrations->have_posts();
+	}
+	
+	function the_post() {
+		return $this->migrations->the_post();
+	}
+	
+	function setup_query() {
+		$get_args = array(
+			'post_type'	=> 'blsci_ad_migration',
+			'post_status'	=> 'publish'
+		);
+		
+		// Optional args
+		if ( !empty( $this->wp_user_id ) )
+			$get_args['post_author'] = $this->wp_user_id;
+		
+		$this->migrations = new WP_Query( $get_args );
 	}
 }
 
