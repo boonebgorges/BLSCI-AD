@@ -380,6 +380,7 @@ function blsci_logs_render() {
 
 	
 	<?php if ( $migrations->have_posts() ) : ?>
+		<?php $pagination->setup_query( $migrations->migrations ) ?>
 		<div class="ia-admin-pagination">
 			<div class="currently-viewing">
 				<?php $pagination->currently_viewing_text() ?>

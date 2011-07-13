@@ -183,7 +183,68 @@ class BLSCI_AD_Migration {
 		if ( !empty( $this->wp_user_id ) )
 			$get_args['post_author'] = $this->wp_user_id;
 		
+		// Setup orderby
+		switch ( $this->orderby ) {
+			case 'wp_username' :
+				// Join users table
+				add_filter( 'posts_join_paged', create_function( '$sql', 'global $wpdb; return " INNER JOIN $wpdb->users ON ($wpdb->users.ID = $wpdb->posts.post_author)";' ) );
+				
+				// Force order
+				add_filter( 'posts_orderby', create_function( '$sql', 'global $wpdb; return " $wpdb->users.user_login ' . $this->order . '";' ) );
+				
+				// This is a dummy value
+				$orderby = 'user_login';
+				break;
+			
+			case 'display_name' :
+				$orderby = 'title';
+				break;
+			
+			case 'ad_username' :
+				// Join usermeta table
+				add_filter( 'posts_join_paged', create_function( '$sql', 'global $wpdb; return " JOIN $wpdb->postmeta ON ($wpdb->postmeta.post_id = $wpdb->posts.ID)";' ) );
+				
+				// Add the necessary WHERE clause
+				// I can't get this to work so that users show up who haven't got
+				// AD names yet
+				add_filter( 'posts_where_paged', create_function( '$sql', 'global $wpdb; return $sql . " AND ( $wpdb->postmeta.meta_key = \'blsci_ad_username\' OR NOT EXISTS ( SELECT COUNT(*) FROM $wpdb->postmeta WHERE meta_key = \'blsci_ad_username\' AND post_id = $wpdb->posts.ID ) )";' ) );
+				
+				// Force order
+				add_filter( 'posts_orderby', create_function( '$sql', 'global $wpdb; return " $wpdb->postmeta.meta_value ' . $this->order . '";' ) );
+				break;
+			
+			case 'last_activity' :
+				// Join usermeta table
+				add_filter( 'posts_join_paged', create_function( '$sql', 'global $wpdb; return " JOIN $wpdb->usermeta ON ($wpdb->usermeta.user_id = $wpdb->posts.post_author)";' ) );
+				
+				// Add the necessary WHERE clause
+				// I can't get this to work so that users show up who haven't got
+				// AD names yet
+				add_filter( 'posts_where_paged', create_function( '$sql', 'global $wpdb; return $sql . " AND $wpdb->usermeta.meta_key = \'last_activity\' ";' ) );
+				
+				// Force order
+				add_filter( 'posts_orderby', create_function( '$sql', 'global $wpdb; return " $wpdb->usermeta.meta_value ' . $this->order . '";' ) );
+				break;
+			
+			case 'date_registered' :
+				$orderby = 'meta_value';
+				$get_args['meta_key'] = 'blsci_date_registered';
+				break;
+			
+			case 'status' :
+				$orderby = 'meta_value';
+				$get_args['meta_key'] = 'blsci_migration_status';
+				break;
+		}
+		
+		$get_args['orderby'] = $orderby;
+		$get_args['order'] = $this->order;
+		
 		$this->migrations = new WP_Query( $get_args );
+	}
+	
+	function filter_query_join( $table ) {
+		add_filter( 'posts_join_paged', create_function( '$sql', 'global $wpdb; return " INNER JOIN $wpdb->users ON ($wpdb->users.ID = $  var_dump( $sql); return $sql;' ) );
 	}
 }
 
