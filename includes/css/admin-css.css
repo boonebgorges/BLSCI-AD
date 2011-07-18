@@ -52,6 +52,10 @@ div.cs p {
 	clear: both;
 }
 
+.subsubsub {
+	float: none;
+}
+
 .ia-admin-pagination {
 	position: relative;
 	height: 30px;

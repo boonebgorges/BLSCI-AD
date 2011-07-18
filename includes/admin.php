@@ -504,13 +504,17 @@ function blsci_logs_render() {
 	
 	$sortable    = new BBG_CPT_Sort( $cols );
 	
-		
 	$args = array(
 		'orderby'		=> $sortable->get_orderby,
 		'order'			=> $sortable->get_order,
 		'posts_per_page'	=> $pagination->get_per_page,
 		'paged'			=> $pagination->get_paged, 
-	); 
+	);
+	
+	$filter = isset( $_GET['filter'] ) ? $_GET['filter'] : false;
+	
+	if ( $filter )
+		$args['status'] = $filter;
 	
 	$migrations = new BLSCI_AD_Migration( $args ); 
 	
@@ -519,11 +523,27 @@ function blsci_logs_render() {
 	<h3>Migration Logs</h3>
 	
 	<p><?php _e( 'On this page, you can view the results of previous user migration attempts.', 'blsci-ad' ) ?></p>
-
 	
 	<?php if ( $migrations->have_posts() ) : ?>
+		
 		<?php $pagination->setup_query( $migrations->migrations ) ?>
+		
+		<ul class="subsubsub">
+			<li class="all">
+				<a <?php if ( empty( $filter ) ) : ?>class="current" <?php endif ?>href="<?php echo $base_url ?>"><?php _e( 'All', 'blsci-ad' ) ?></a> | 
+			</li>
+			
+			<li class="success">
+				<a <?php if ( 'success' == $filter ) : ?>class="current" <?php endif ?>href="<?php echo add_query_arg( 'filter', 'success' ) ?>"><?php _e( 'Successful', 'blsci-ad' ) ?></a> |
+			</li>
+			
+			<li class="failure">
+				<a <?php if ( 'failure' == $filter ) : ?>class="current" <?php endif ?>href="<?php echo add_query_arg( 'filter', 'failure' ) ?>"><?php _e( 'Failed', 'blsci-ad' ) ?></a>
+			</li>
+		</ul>
+
 		<div class="ia-admin-pagination">
+			
 			<div class="currently-viewing">
 				<?php $pagination->currently_viewing_text() ?>
 			</div>

@@ -205,7 +205,7 @@ class BLSCI_AD_Migration {
 		switch ( $this->orderby ) {
 			case 'wp_username' :
 				// Join users table
-				add_filter( 'posts_join_paged', create_function( '$sql', 'global $wpdb; return " INNER JOIN ' . $this->users_table . ' ON (' . $this->users_table . '.ID = $wpdb->posts.post_author)";' ) );
+				add_filter( 'posts_join_paged', create_function( '$sql', 'global $wpdb; return $sql . " INNER JOIN ' . $this->users_table . ' ON (' . $this->users_table . '.ID = $wpdb->posts.post_author)";' ) );
 				
 				// Force order
 				add_filter( 'posts_orderby', create_function( '$sql', 'global $wpdb; return "' . $this->users_table . '.user_login ' . $this->order . '";' ) );
@@ -220,7 +220,7 @@ class BLSCI_AD_Migration {
 			
 			case 'email' :
 				// Join users table
-				add_filter( 'posts_join_paged', create_function( '$sql', 'global $wpdb; return " INNER JOIN ' . $this->users_table . ' ON (' . $this->users_table . '.ID = $wpdb->posts.post_author)";' ) );
+				add_filter( 'posts_join_paged', create_function( '$sql', 'global $wpdb; return $sql . " INNER JOIN ' . $this->users_table . ' ON (' . $this->users_table . '.ID = $wpdb->posts.post_author)";' ) );
 				
 				// Force order
 				add_filter( 'posts_orderby', create_function( '$sql', 'global $wpdb; return "' . $this->users_table . '.user_email ' . $this->order . '";' ) );
@@ -231,7 +231,7 @@ class BLSCI_AD_Migration {
 			
 			case 'ad_username' :
 				// Join usermeta table
-				add_filter( 'posts_join_paged', create_function( '$sql', 'global $wpdb; return " JOIN $wpdb->postmeta ON ($wpdb->postmeta.post_id = $wpdb->posts.ID)";' ) );
+				add_filter( 'posts_join_paged', create_function( '$sql', 'global $wpdb; return $sql . " JOIN $wpdb->postmeta ON ($wpdb->postmeta.post_id = $wpdb->posts.ID)";' ) );
 				
 				// Add the necessary WHERE clause
 				// I can't get this to work so that users show up who haven't got
@@ -244,7 +244,7 @@ class BLSCI_AD_Migration {
 			
 			case 'last_activity' :
 				// Join usermeta table
-				add_filter( 'posts_join_paged', create_function( '$sql', 'global $wpdb; return " JOIN ' . $this->usermeta_table . ' ON (' . $this->usermeta_table . '.user_id = $wpdb->posts.post_author)";' ) );
+				add_filter( 'posts_join_paged', create_function( '$sql', 'global $wpdb; return $sql . " JOIN ' . $this->usermeta_table . ' ON (' . $this->usermeta_table . '.user_id = $wpdb->posts.post_author)";' ) );
 				
 				// Add the necessary WHERE clause
 				// I can't get this to work so that users show up who haven't got
@@ -271,6 +271,27 @@ class BLSCI_AD_Migration {
 	
 		$get_args['paged'] 	    = $this->paged;
 		$get_args['posts_per_page'] = $this->posts_per_page;
+		
+		if ( $this->status ) {
+			switch ( $this->status ) {
+				case 'success' :
+					$compare = '=';
+					$value   = 'success';
+					break;
+				
+				default :
+					$compare = '!=';
+					$value   = 'success';
+			}
+			
+			$get_args['meta_query'] = array(
+				array(
+					'key'	=> 'blsci_migration_status',
+					'value'	=> $value,
+					'compare' => $compare
+				)
+			);
+		}
 		
 		$this->migrations = new WP_Query( $get_args );
 	}

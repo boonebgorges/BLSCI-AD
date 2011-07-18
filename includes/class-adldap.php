@@ -54,7 +54,15 @@ class BLSCI_adLDAP extends adLDAP {
 	}
 	
 	public function find_user_by_email( $email ) {
-		return $this->find_user_by( $email, 'mail' );
+		$user = $this->find_user_by( $email, 'mail' );
+	
+		// Compatibility with older style Baruch email addresses
+		if ( empty( $user ) && false !== strpos( $email, '_' ) ) {
+			$email = str_replace( '_', ',', $email );
+			$user = $this->find_user_by( $email, 'mail' );
+		}
+		
+		return $user;
 	}
 }
 
