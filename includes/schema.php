@@ -240,11 +240,9 @@ class BLSCI_AD_Migration {
 		$get_args['orderby'] = $orderby;
 		$get_args['order'] = $this->order;
 		
+		var_dump( $get_args );
+		
 		$this->migrations = new WP_Query( $get_args );
-	}
-	
-	function filter_query_join( $table ) {
-		add_filter( 'posts_join_paged', create_function( '$sql', 'global $wpdb; return " INNER JOIN $wpdb->users ON ($wpdb->users.ID = $  var_dump( $sql); return $sql;' ) );
 	}
 }
 

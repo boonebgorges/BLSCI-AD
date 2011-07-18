@@ -19,6 +19,7 @@ define( 'ADBB_INCLUDES_PATH', ADBB_INSTALL_PATH . 'includes/' );
 include( ADBB_INCLUDES_PATH . 'schema.php' ); // Sets up the custom post type, etc
 include( ADBB_INCLUDES_PATH . 'plugin-fix.php' ); // Fixes for the AD Integration plugin
 include( ADBB_INCLUDES_PATH . 'class-adldap.php' ); // The AD API class
+include( ADBB_INCLUDES_PATH . 'username-backpat.php' ); // Backpat for pre-AD usernames
 
 if ( is_network_admin() || is_admin() ) {
 	include( ADBB_INCLUDES_PATH . 'admin.php' );

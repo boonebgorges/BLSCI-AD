@@ -283,6 +283,8 @@ function blsciad_migrate_user( $user_id ) {
 	// Get the user email out of this info (this is their primary login for WP)
 	$ad_email = isset( $ad_userinfo[0]['mail'][0] ) ? $ad_userinfo[0]['mail'][0] : false;
 	
+	$ad_accountname = isset( $ad_userinfo[0]['samaccountname'][0] ) ? strtolower( $ad_userinfo[0]['samaccountname'][0] ) : $ad_email;
+	
 	// Stash the old WP username in a usermeta for later use. Only do this once.
 	if ( !get_user_meta( $user_id, 'blsci_deprecated_wp_user_login', true ) ) {
 		update_user_meta( $user_id, 'blsci_deprecated_wp_user_login', $user->user_login );
@@ -296,7 +298,7 @@ function blsciad_migrate_user( $user_id ) {
 	}
 	
 	// Now we can do the migration itself
-	$sql = $wpdb->prepare( "UPDATE {$wpdb->users} SET user_login = %s, user_nicename = %s WHERE ID = %d;", $ad_email, sanitize_title( $ad_email ), (int)$user_id );
+	$sql = $wpdb->prepare( "UPDATE {$wpdb->users} SET user_login = %s, user_nicename = %s WHERE ID = %d;", $ad_accountname, sanitize_title( $ad_accountname ), (int)$user_id );
 	$result = $wpdb->query( $sql );
 	
 	// Record as a success or a failure
