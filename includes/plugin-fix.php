@@ -25,7 +25,6 @@ class BLSCI_AD_Fix extends ADIntegrationPlugin {
 	 */
 	function __construct() {
 		global $wp_version, $wpmu_version, $wpdb, $wpmuBaseTablePrefix;
-
 		$wpmu_version = $wp_version;
 
 		if (!defined('IS_WPMU')) {
@@ -175,11 +174,11 @@ function blsciad_options_save() {
 	
 	// Catch attempts to send requests to the plugin page
 	if ( isset( $wp_query->query['pagename'] ) && 'wp-admin/network/options.php' == $wp_query->query['pagename'] ) {
-		
+
 		// Triple-check that this is our request
 		if ( !empty( $_POST['option_page'] ) && 'ADI-server-settings' != $_POST['option_page'] )
 			return;
-		
+
 		// Send to the correct place
 		$base = is_multisite() ? network_admin_url( 'settings.php' ) : admin_url( 'options.php' );
 		$redirect = add_query_arg( 'page', 'active-directory-integration/ad-integration.php', $base );
@@ -197,7 +196,7 @@ function blsciad_options_save() {
 		
 	}
 }
-add_action( 'wp', 'blsciad_options_save' );
+add_action( 'wp', 'blsciad_options_save', 1 );
 
 function blsciad_test_catch() {
 	global $wp_query, $ad_integration_plugin_path;

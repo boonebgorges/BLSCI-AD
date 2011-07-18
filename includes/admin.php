@@ -28,7 +28,6 @@ function blsciad_admin_styles() {
  * @since 1.0
  */
 function blsciad_network_panel_render() {
-	
 	$form_action_base = add_query_arg( 'page', 'blsci-ad', network_admin_url( 'settings.php' ) );
 	
 	$subpage = isset( $_GET['subpage' ] ) ? $_GET['subpage'] : 'migration-logs';
@@ -142,7 +141,7 @@ function blsciad_migrate_step() {
 	global $wpdb;
 	
 	// The URL base used to concatenate refresh URLs
-	$migration_step_base = add_query_arg( array( 'page' => 'blsci-ad', 'blsci_action' => 'migrate' ), network_admin_url( 'settings.php' ) );
+	$migration_step_base = add_query_arg( array( 'page' => 'blsci-ad', 'blsci_action' => 'migrate', 'subpage' => 'migrate' ), network_admin_url( 'settings.php' ) );
 
 	// We'll need the total user count so that we know when to stop looping
 	$total_users = $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM $wpdb->users WHERE ID != 1" ) );
@@ -151,6 +150,11 @@ function blsciad_migrate_step() {
 	$per_page = 5;
 	$start    = isset( $_GET['start'] ) ? $_GET['start'] : 1;
 	$end 	  = $start + $per_page;
+	
+	// on the first page, save the credentials
+	if ( empty( $_GET['start'] ) ) {
+		update_option( 'blsciad_temp_creds', array( 'username' => $_POST['blsci-ad-username'], 'password' => $_POST['blsci-ad-password'] ) );
+	}
 	
 	// Is this the last page?
 	if ( $end >= $total_users ) {
@@ -170,9 +174,21 @@ function blsciad_migrate_step() {
 	 *   2) Their user_id != 1 (this user is always WP authenticated)
 	 * I could probably do this with WP_User_Query but it would take a manual filter, so eff it
 	 */
-	$users_sql = $wpdb->prepare( "SELECT ID FROM $wpdb->users WHERE $wpdb->users.ID != 1 AND NOT EXISTS (SELECT * FROM $wpdb->usermeta WHERE $wpdb->usermeta.user_id = $wpdb->users.ID AND $wpdb->usermeta.meta_key = 'blsci_results') LIMIT 0, %d", $per_page );
+	$users_sql = $wpdb->prepare( "SELECT ID FROM $wpdb->users WHERE $wpdb->users.ID != 1 AND NOT EXISTS (SELECT * FROM $wpdb->usermeta WHERE $wpdb->usermeta.user_id = $wpdb->users.ID AND $wpdb->usermeta.meta_key = 'blsci_deprecated_wp_user_login') LIMIT %d, %d", $start, $per_page );
 	
 	$users = $wpdb->get_col( $users_sql );
+	
+	// For testing with Luke's account
+	// $users = array( 11 );
+	
+	// Attempt to bind the AD server
+	global $AD_Integration_plugin;
+	$creds = get_option( 'blsciad_temp_creds' );
+	if ( empty( $creds ) )
+		return;
+		
+	$AD_Integration_plugin->login( $creds['username'], $creds['password'] );
+	
 	
 	echo '<p>' . sprintf( 'Currently migrating users %1$d through %2$d of %3$d. This page will automatically refresh in a few seconds.', (int)$start, (int)$end, (int)$total_users ) . '</p>';
 	
@@ -206,8 +222,8 @@ function blsciad_migrate_step() {
 	echo '</ul>';
 	
 	// Do the refresh javascript
-	$url = $migration_step_base;
-
+	$url = add_query_arg( 'start', $start + $per_page, $migration_step_base );
+	
 	?>	
 	<script type='text/javascript'>
 		<!--
@@ -232,18 +248,7 @@ function blsciad_migrate_user( $user_id, $new_username = false ) {
 	if ( 1 == $user_id )
 		return;
 
-	$ad_user = false;
-	
-	// Pull up the userdata so that we can get the email address
-	$user = get_userdata( $user_id );
-	
-	// This is a bit hackish. Echo the user display name and login
-	echo '<strong>' . $user->display_name . ' (' . $user->user_login . ')</strong>';
-	
-	if ( !$new_username ) {
-		// Try to find a user with this email address
-		$ad_user = $AD_Integration_plugin->adldap->find_user_by_email( $user->user_email );
-	}
+	$ad_user = false;	
 	
 	$migration_args = array(
 		'wp_user_id' 	    => $user_id,
@@ -255,6 +260,23 @@ function blsciad_migrate_user( $user_id, $new_username = false ) {
 	);
 	
 	$migration = new BLSCI_AD_Migration( $migration_args );
+	
+	// Pull up the userdata so that we can get the email address
+	$user = get_userdata( $user_id );
+	
+	if ( !$user ) {
+		$AD_Integration_plugin->log_api_error( $user, 'not_found' );
+		$migration->mark_as_failure();
+		return 'not_found';
+	}
+	
+	// This is a bit hackish. Echo the user display name and login
+	echo '<strong>' . $user->display_name . ' (' . $user->user_login . ')</strong>';
+	
+	if ( !$new_username ) {
+		// Try to find a user with this email address
+		$ad_user = $AD_Integration_plugin->adldap->find_user_by_email( $user->user_email );
+	}
 	
 	if ( !$new_username ) {
 		// Couldn't find one. Let's look for exact matches by name
@@ -307,7 +329,7 @@ function blsciad_migrate_user( $user_id, $new_username = false ) {
 	}
 	
 	// Check to see if the username needs changing
-	if ( $user->user_login == $ad_email ) {
+	if ( $user->user_login == $ad_accountname ) {
 		$migration->mark_as_unchanged();
 		return 'unchanged';
 	}
@@ -447,6 +469,11 @@ function blsci_logs_render() {
 			'css_class'	=> 'Display Name'
 		),
 		array(
+			'name'		=> 'email',
+			'title'		=> __( 'Email', 'blsci-ad' ),
+			'css_class'	=> 'email'
+		),
+		array(
 			'name'		=> 'ad_username',
 			'title'		=> __( 'AD Username', 'blsci-ad' ),
 			'css_class'	=> 'ad-username'
@@ -547,6 +574,10 @@ function blsci_logs_render() {
 				
 				<td class="display-name">
 					<?php the_title() ?>
+				</td>
+				
+				<td class="email">
+					<?php the_author_meta( 'user_email' ) ?>
 				</td>
 				
 				<td class="ad-username">

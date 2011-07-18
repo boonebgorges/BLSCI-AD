@@ -45,8 +45,14 @@ class BLSCI_AD_Migration {
 	var $migrations;
 	
 	var $post_id = false;
+	
+	var $is_sharded = false;
+	var $global_db;
+	var $users_table;
 
 	function __construct( $args = array() ) {
+		global $shardb_prefix, $wpdb;
+		
 		$defaults = array(
 			'wp_user_id' 	    => false,
 			'ad_username'	    => false,
@@ -67,6 +73,18 @@ class BLSCI_AD_Migration {
 		foreach( $r as $key => $value ) {
 			$this->{$key} = $value;		
 		}
+		
+		// Is this DB sharded?
+		if ( isset( $shardb_prefix ) ) {
+			$this->is_sharded  	= true;
+			$this->global_db   	= $shardb_prefix . 'global'; 
+			$this->users_table 	= $this->global_db . '.' . $wpdb->users;
+			$this->usermeta_table 	= $this->global_db . '.' . $wpdb->usermeta;
+		} else {
+			$this->users_table	= $wpdb->users;
+			$this->usermeta_table	= $wpdb->usermeta;
+		}
+		
 	}
 	
 	function set_ad_username( $username ) {
@@ -94,7 +112,7 @@ class BLSCI_AD_Migration {
 		$check_post = new WP_Query( array(
 			'author'      => $this->wp_user_id,
 			'post_type'   => 'blsci_ad_migration',
-			'post_status' => 'publish'
+			'post_status' => 'publish,future'
 		) );
 		
 		if ( $check_post->have_posts() ) {
@@ -176,7 +194,7 @@ class BLSCI_AD_Migration {
 	function setup_query() {
 		$get_args = array(
 			'post_type'	=> 'blsci_ad_migration',
-			'post_status'	=> 'publish'
+			'post_status'	=> 'publish,future'
 		);
 		
 		// Optional args
@@ -187,10 +205,10 @@ class BLSCI_AD_Migration {
 		switch ( $this->orderby ) {
 			case 'wp_username' :
 				// Join users table
-				add_filter( 'posts_join_paged', create_function( '$sql', 'global $wpdb; return " INNER JOIN $wpdb->users ON ($wpdb->users.ID = $wpdb->posts.post_author)";' ) );
+				add_filter( 'posts_join_paged', create_function( '$sql', 'global $wpdb; return " INNER JOIN ' . $this->users_table . ' ON (' . $this->users_table . '.ID = $wpdb->posts.post_author)";' ) );
 				
 				// Force order
-				add_filter( 'posts_orderby', create_function( '$sql', 'global $wpdb; return " $wpdb->users.user_login ' . $this->order . '";' ) );
+				add_filter( 'posts_orderby', create_function( '$sql', 'global $wpdb; return "' . $this->users_table . '.user_login ' . $this->order . '";' ) );
 				
 				// This is a dummy value
 				$orderby = 'user_login';
@@ -198,6 +216,17 @@ class BLSCI_AD_Migration {
 			
 			case 'display_name' :
 				$orderby = 'title';
+				break;
+			
+			case 'email' :
+				// Join users table
+				add_filter( 'posts_join_paged', create_function( '$sql', 'global $wpdb; return " INNER JOIN ' . $this->users_table . ' ON (' . $this->users_table . '.ID = $wpdb->posts.post_author)";' ) );
+				
+				// Force order
+				add_filter( 'posts_orderby', create_function( '$sql', 'global $wpdb; return "' . $this->users_table . '.user_email ' . $this->order . '";' ) );
+				
+				// This is a dummy value
+				$orderby = 'user_email';
 				break;
 			
 			case 'ad_username' :
@@ -215,15 +244,15 @@ class BLSCI_AD_Migration {
 			
 			case 'last_activity' :
 				// Join usermeta table
-				add_filter( 'posts_join_paged', create_function( '$sql', 'global $wpdb; return " JOIN $wpdb->usermeta ON ($wpdb->usermeta.user_id = $wpdb->posts.post_author)";' ) );
+				add_filter( 'posts_join_paged', create_function( '$sql', 'global $wpdb; return " JOIN ' . $this->usermeta_table . ' ON (' . $this->usermeta_table . '.user_id = $wpdb->posts.post_author)";' ) );
 				
 				// Add the necessary WHERE clause
 				// I can't get this to work so that users show up who haven't got
 				// AD names yet
-				add_filter( 'posts_where_paged', create_function( '$sql', 'global $wpdb; return $sql . " AND $wpdb->usermeta.meta_key = \'last_activity\' ";' ) );
+				add_filter( 'posts_where_paged', create_function( '$sql', 'global $wpdb; return $sql . " AND ' . $this->usermeta_table . '.meta_key = \'last_activity\' ";' ) );
 				
 				// Force order
-				add_filter( 'posts_orderby', create_function( '$sql', 'global $wpdb; return " $wpdb->usermeta.meta_value ' . $this->order . '";' ) );
+				add_filter( 'posts_orderby', create_function( '$sql', 'global $wpdb; return " ' . $this->usermeta_table . '.meta_value ' . $this->order . '";' ) );
 				break;
 			
 			case 'date_registered' :
@@ -237,10 +266,11 @@ class BLSCI_AD_Migration {
 				break;
 		}
 		
-		$get_args['orderby'] = $orderby;
-		$get_args['order'] = $this->order;
-		
-		var_dump( $get_args );
+		$get_args['orderby']  	    = $orderby;
+		$get_args['order']  	    = $this->order;
+	
+		$get_args['paged'] 	    = $this->paged;
+		$get_args['posts_per_page'] = $this->posts_per_page;
 		
 		$this->migrations = new WP_Query( $get_args );
 	}
