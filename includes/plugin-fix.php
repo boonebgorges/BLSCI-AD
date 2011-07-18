@@ -14,6 +14,9 @@ $ad_integration_plugin_path = WP_PLUGIN_DIR . '/active-directory-integration/';
 if ( !file_exists( $ad_integration_plugin_path . 'ad-integration.php' ) )
 	return;
 
+if ( !class_exists( 'ADIntegrationPlugin' ) )
+	return;
+
 class BLSCI_AD_Fix extends ADIntegrationPlugin {
 	var $wp_errors = array();
 

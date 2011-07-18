@@ -56,7 +56,12 @@ function blsciad_network_panel_render() {
 	<?php endif ?>
 	
 	<?php if ( 'migration-logs' == $subpage ) : ?>
-		<?php blsci_logs_render() ?>
+		
+		<?php if ( isset( $_GET['blsci_action'] ) && 'change_username' == $_GET['blsci_action'] ) : ?>
+			<?php blsciad_username_edit_render() ?>
+		<?php else : ?>
+			<?php blsci_logs_render() ?>
+		<?php endif ?>
 	
 	<?php else : ?>
 		
@@ -217,7 +222,7 @@ function blsciad_migrate_step() {
 	echo $migration_step_base;
 }
 
-function blsciad_migrate_user( $user_id ) {	
+function blsciad_migrate_user( $user_id, $new_username = false ) {	
 	global $AD_Integration_plugin, $wpdb;
 	
 	if ( !$user_id )
@@ -235,8 +240,10 @@ function blsciad_migrate_user( $user_id ) {
 	// This is a bit hackish. Echo the user display name and login
 	echo '<strong>' . $user->display_name . ' (' . $user->user_login . ')</strong>';
 	
-	// Try to find a user with this email address
-	$ad_user = $AD_Integration_plugin->adldap->find_user_by_email( $user->user_email );
+	if ( !$new_username ) {
+		// Try to find a user with this email address
+		$ad_user = $AD_Integration_plugin->adldap->find_user_by_email( $user->user_email );
+	}
 	
 	$migration_args = array(
 		'wp_user_id' 	    => $user_id,
@@ -249,41 +256,49 @@ function blsciad_migrate_user( $user_id ) {
 	
 	$migration = new BLSCI_AD_Migration( $migration_args );
 	
-	// Couldn't find one. Let's look for exact matches by name
-	if ( !$ad_user ) {		
-		if ( $ad_user = $AD_Integration_plugin->adldap->find_user_by_email( $user->display_name ) ) {
-			$found_method = 'name';
-			$migration_args['migration_status'] = 'located_by_name';
-			$migration->set_ad_username( $ad_username );
-			$migration->mark_as_failure( 'located_by_name' );
-			return 'located_by_name';
+	if ( !$new_username ) {
+		// Couldn't find one. Let's look for exact matches by name
+		if ( !$ad_user ) {		
+			if ( $ad_user = $AD_Integration_plugin->adldap->find_user_by_email( $user->display_name ) ) {
+				$found_method = 'name';
+				$migration_args['migration_status'] = 'located_by_name';
+				$migration->set_ad_username( $ad_username );
+				$migration->mark_as_failure( 'located_by_name' );
+				return 'located_by_name';
+			}
+		} else {
+			$found_method = 'email';
 		}
-	} else {
-		$found_method = 'email';
+		
+		// If we haven't found an AD user by now, we're out of options.
+		if ( !$ad_user ) {
+			$AD_Integration_plugin->log_api_error( $user, 'not_found' );
+			$migration->mark_as_failure();
+			return 'not_found';
+		}	
+		
+		// Now that we've got an AD user name, let's do some conversion
+		
+		// Get the AD username from the returned data
+		$ad_user_values = array_keys( $ad_user );
+		$ad_username = $ad_user_values[0];
+				
+		// Get the rest of the userinfo
+		$ad_userinfo = $AD_Integration_plugin->adldap->user_info( $ad_username );
+		
+		// Get the user email out of this info (this is their primary login for WP)
+		$ad_email = isset( $ad_userinfo[0]['mail'][0] ) ? $ad_userinfo[0]['mail'][0] : false;
+		
+		$ad_accountname = isset( $ad_userinfo[0]['samaccountname'][0] ) ? strtolower( $ad_userinfo[0]['samaccountname'][0] ) : $ad_email;
+
 	}
 	
-	// If we haven't found an AD user by now, we're out of options.
-	if ( !$ad_user ) {
-		$AD_Integration_plugin->log_api_error( $user, 'not_found' );
-		$migration->mark_as_failure();
-		return 'not_found';
-	}	
+	// If the data was provided manually
+	if ( $new_username ) {
+		$ad_accountname = $new_username;
+	}
 	
-	// Now that we've got an AD user name, let's do some conversion
-	
-	// Get the AD username from the returned data
-	$ad_user_values = array_keys( $ad_user );
-	$ad_username = $ad_user_values[0];
-	
-	$migration->set_ad_username( $ad_username );
-	
-	// Get the rest of the userinfo
-	$ad_userinfo = $AD_Integration_plugin->adldap->user_info( $ad_username );
-	
-	// Get the user email out of this info (this is their primary login for WP)
-	$ad_email = isset( $ad_userinfo[0]['mail'][0] ) ? $ad_userinfo[0]['mail'][0] : false;
-	
-	$ad_accountname = isset( $ad_userinfo[0]['samaccountname'][0] ) ? strtolower( $ad_userinfo[0]['samaccountname'][0] ) : $ad_email;
+	$migration->set_ad_username( $ad_accountname );
 	
 	// Stash the old WP username in a usermeta for later use. Only do this once.
 	if ( !get_user_meta( $user_id, 'blsci_deprecated_wp_user_login', true ) ) {
@@ -311,6 +326,104 @@ function blsciad_migrate_user( $user_id ) {
 	return $result ? 'success' : 'unknown_failure';
 }
 
+function blsciad_username_edit_render() {
+	global $wpdb;
+	
+	$user_id = isset( $_GET['user_id'] ) ? (int)$_GET['user_id'] : 0;
+	
+	$userdata = get_userdata( $user_id );
+	
+	if ( isset( $_POST['username-edit-submit'] ) ) {
+		check_admin_referer( 'blsciad_username_edit' );
+		
+		$new_username = isset( $_POST['username'] ) ? $_POST['username'] : '';
+		
+		$migrate = blsciad_migrate_user( $user_id, $new_username );
+	
+		// so it displays correctly
+		$userdata->user_login = $new_username;
+	}
+	
+	?>
+	
+	<h3><?php _e( 'Username Edit', 'blsci-ad' ) ?></h3>
+	
+	<?php if ( $userdata ) : ?>
+		
+		<form method="post" action="">
+		
+		<table class="form-table">
+			<tr>
+				<th scope="row">
+					<?php _e( 'User ID', 'blsci-ad' ) ?>
+				</th>
+				
+				<td>
+					<?php echo esc_html( $userdata->ID ) ?>
+				</td>
+			</tr>
+			
+			<tr>
+				<th scope="row">
+					<?php _e( 'Current WP Username', 'blsci-ad' ) ?>
+				</th>
+				
+				<td>
+					<input name="username" value="<?php echo esc_html( $userdata->user_login ) ?>" />
+				</td>
+			</tr>
+			
+			<tr>
+				<th scope="row">
+					<?php _e( 'Pre-AD WP Username', 'blsci-ad' ) ?>
+				</th>
+				
+				<td>
+					<?php if ( isset( $userdata->blsci_deprecated_wp_user_login ) ) : ?>
+						<?php echo esc_html( $userdata->blsci_deprecated_wp_user_login ) ?>
+					<?php else : ?>
+						<em><?php _e( '(none)', 'blsci-ad' ) ?></em>
+					<?php endif ?>
+				</td>
+			</tr>
+			
+			<tr>
+				<th scope="row">
+					<?php _e( 'Email address', 'blsci-ad' ) ?>
+				</th>
+				
+				<td>
+					<?php echo esc_html( $userdata->user_email ) ?>
+				</td>
+			</tr>
+			
+			<tr>
+				<th scope="row">
+					<?php _e( 'Display name', 'blsci-ad' ) ?>
+				</th>
+				
+				<td>
+					<?php echo esc_html( $userdata->display_name ) ?>
+				</td>
+			</tr>
+		</table>
+		
+		<br /><br />
+		
+		<?php wp_nonce_field( 'blsciad_username_edit' ) ?>
+		<input type="submit" class="button-primary confirm" name="username-edit-submit" value="<?php _e( 'Submit', 'blsci-ad' ) ?>" />
+		
+		</form>
+	
+	<?php else : ?>
+		
+		<p><?php _e( 'No user found.', 'blsci-ad' ) ?></p> 
+		
+	<?php endif ?>
+	
+	<?php
+}
+
 function blsci_logs_render() {
 	// Include the pagination and columns libraries
 	include_once( ADBB_INSTALL_PATH . 'lib/boones-pagination.php' );
@@ -318,8 +431,8 @@ function blsci_logs_render() {
 	
 	$pagination = new BBG_CPT_Pag();
 	
-	
-	//WP username, AD username (if found), migration status, last login, registration date, migration date
+	// Set the base URL for use in the row actions
+	$base_url = add_query_arg( 'page', 'blsci-ad', network_admin_url( 'settings.php' ) );
 	
 	$cols = array(
 		array(
@@ -426,6 +539,10 @@ function blsci_logs_render() {
 					<?php else : ?>
 						<?php the_author_meta( 'user_login' ) ?>
 					<?php endif ?>
+					
+					<div class="row-actions">
+						<span class="edit"><a href="<?php echo add_query_arg( array( 'blsci_action' => 'change_username', 'user_id' => get_the_author_ID() ), $base_url ) ?>"><?php _e( 'Manually Edit Username', 'blsci-ad' ) ?></a></span>						
+					</div>
 				</td>
 				
 				<td class="display-name">
