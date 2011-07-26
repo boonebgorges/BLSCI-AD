@@ -174,10 +174,17 @@ function blsciad_migrate_step() {
 	 *   2) Their user_id != 1 (this user is always WP authenticated)
 	 * I could probably do this with WP_User_Query but it would take a manual filter, so eff it
 	 */
-	$users_sql = $wpdb->prepare( "SELECT ID FROM $wpdb->users WHERE $wpdb->users.ID != 1 AND NOT EXISTS (SELECT * FROM $wpdb->usermeta WHERE $wpdb->usermeta.user_id = $wpdb->users.ID AND $wpdb->usermeta.meta_key = 'blsci_deprecated_wp_user_login') LIMIT %d, %d", $start, $per_page );
+	$already_users_sql = $wpdb->prepare( "SELECT post_author FROM $wpdb->posts WHERE post_type = 'blsci_ad_migration'");
+	$already_users = $wpdb->get_col( $already_users_sql );
+	
+	$already_users_sql = implode( ',', $already_users );
+	
+	$how_many = $wpdb->get_var( "SELECT COUNT(*) FROM $wpdb->users" );
+
+	$users_sql = $wpdb->prepare( "SELECT ID FROM $wpdb->users WHERE ID != 1 AND ID NOT IN ({$already_users_sql}) LIMIT %d, %d", $start, $per_page );
 	
 	$users = $wpdb->get_col( $users_sql );
-	
+
 	// For testing with Luke's account
 	// $users = array( 11 );
 	

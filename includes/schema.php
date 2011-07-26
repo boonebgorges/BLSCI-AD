@@ -275,13 +275,13 @@ class BLSCI_AD_Migration {
 		if ( $this->status ) {
 			switch ( $this->status ) {
 				case 'success' :
-					$compare = '=';
-					$value   = 'success';
+					$compare = 'IN';
+					$value   = 'success,unchanged';
 					break;
 				
 				default :
-					$compare = '!=';
-					$value   = 'success';
+					$compare = 'NOT IN';
+					$value   = 'success,unchanged';
 			}
 			
 			$get_args['meta_query'] = array(
