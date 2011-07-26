@@ -143,8 +143,19 @@ function blsciad_migrate_step() {
 	// The URL base used to concatenate refresh URLs
 	$migration_step_base = add_query_arg( array( 'page' => 'blsci-ad', 'blsci_action' => 'migrate', 'subpage' => 'migrate' ), network_admin_url( 'settings.php' ) );
 
+	/**
+	 * Get the users to migrate. These will be users who meet the following criteria:
+	 *   1) They have no logs available
+	 *   2) Their user_id != 1 (this user is always WP authenticated)
+	 * I could probably do this with WP_User_Query but it would take a manual filter, so eff it
+	 */
+	$already_users_sql = $wpdb->prepare( "SELECT post_author FROM $wpdb->posts WHERE post_type = 'blsci_ad_migration'");
+	$already_users = $wpdb->get_col( $already_users_sql );
+	
+	$already_users_sql = implode( ',', $already_users );
+
 	// We'll need the total user count so that we know when to stop looping
-	$total_users = $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM $wpdb->users WHERE ID != 1" ) );
+	$total_users = $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM $wpdb->users WHERE ID != 1 AND ID NOT IN  ($already_users_sql )" ) );
 	
 	// Get the start and end numbers
 	$per_page = 5;
@@ -168,16 +179,7 @@ function blsciad_migrate_step() {
 		$is_last_page = true;
 	}
 	
-	/**
-	 * Get the users to migrate. These will be users who meet the following criteria:
-	 *   1) They have no blsci_results usermeta
-	 *   2) Their user_id != 1 (this user is always WP authenticated)
-	 * I could probably do this with WP_User_Query but it would take a manual filter, so eff it
-	 */
-	$already_users_sql = $wpdb->prepare( "SELECT post_author FROM $wpdb->posts WHERE post_type = 'blsci_ad_migration'");
-	$already_users = $wpdb->get_col( $already_users_sql );
 	
-	$already_users_sql = implode( ',', $already_users );
 	
 	$how_many = $wpdb->get_var( "SELECT COUNT(*) FROM $wpdb->users" );
 
