@@ -155,7 +155,9 @@ function blsciad_migrate_step() {
 	$already_users_sql = implode( ',', $already_users );
 
 	// We'll need the total user count so that we know when to stop looping
-	$total_users = $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM $wpdb->users WHERE ID != 1 AND ID NOT IN  ($already_users_sql )" ) );
+	//$total_users = $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM $wpdb->users WHERE ID != 1 AND ID NOT IN  ($already_users_sql )" ) );
+	
+	$total_users = get_option( 'blsci_members_to_go' );
 	
 	// Get the start and end numbers
 	$per_page = 5;
@@ -164,6 +166,13 @@ function blsciad_migrate_step() {
 	
 	// on the first page, save the credentials
 	if ( empty( $_GET['start'] ) ) {
+		
+		$total_users = $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM $wpdb->users WHERE ID != 1 AND ID NOT IN  ($already_users_sql )" ) );
+		
+		//$tud = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM $wpdb->users WHERE ID != 1 AND ID NOT IN ( $already_users_sql )" ) );
+		//echo '<pre>';var_dump( $tud ); die();
+		
+		update_option( 'blsci_members_to_go', $total_users );
 		update_option( 'blsciad_temp_creds', array( 'username' => $_POST['blsci-ad-username'], 'password' => $_POST['blsci-ad-password'] ) );
 	}
 	
@@ -177,6 +186,8 @@ function blsciad_migrate_step() {
 		
 		// So we can access it later if need be
 		$is_last_page = true;
+		
+		delete_option( 'blsci_members_to_go' );
 	}
 	
 	

@@ -138,6 +138,11 @@ class BLSCI_AD_Migration {
 			$this->wp_display_name = $userdata->display_name;
 		}
 		
+		if ( !$this->wp_display_name ) {
+			// Put in a dummy display name if nothing else
+			$this->wp_display_name = $userdata->user_login;
+		}
+		
 		$save_args = array(
 			'post_author'	=> $this->wp_user_id,
 			'post_type'	=> 'blsci_ad_migration',
