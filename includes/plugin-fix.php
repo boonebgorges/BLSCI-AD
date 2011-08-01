@@ -132,6 +132,90 @@ class BLSCI_AD_Fix extends ADIntegrationPlugin {
 		}
 	}
 	
+	/**
+	 * Save options in a non-stupid way, which actually works
+	 *
+	 * @package BLSCI-AD
+	 * @since 1.0
+	 */
+	protected function _save_wpmu_options($arrPost) {
+		
+ 		if ( is_multisite() ) {
+ 			// Different settings are passed on each page, so we have to be specific
+ 			$all_options = array(
+ 				'ADI-server-settings' => array(
+ 					'AD_Integration_domain_controllers',
+ 					'AD_Integration_port',
+ 					'AD_Integration_use_tls',
+ 					'AD_Integration_network_timeout',
+ 					'AD_Integration_base_dn',
+ 				),
+ 				'ADI-user-settings' => array(
+ 					'AD_Integration_account_suffix',
+ 					'AD_Integration_append_suffix_to_new_users',
+ 					'AD_Integration_auto_create_user',
+ 					'AD_Integration_auto_update_user',
+ 					'AD_Integration_auto_update_description',
+ 					'AD_Integration_default_email_domain',
+ 					'AD_Integration_duplicate_email_prevention',
+ 					'AD_Integration_display_name',
+ 					'AD_Integration_enable_password_change',
+ 					'AD_Integration_no_random_password',
+ 					'AD_Integration_auto_update_password'
+ 				),
+ 				'ADI-auth-settings' => array(
+ 					'AD_Integration_authorize_by_group',
+ 					'AD_Integration_authorization_group',
+ 					'AD_Integration_role_equivalent_groups'
+ 				),
+ 				'ADI-security-settings' => array(
+ 					'AD_Integration_max_login_attempts',
+ 					'AD_Integration_block_time',
+ 					'AD_Integration_user_notification',
+ 					'AD_Integration_admin_notification',
+ 					'AD_Integration_admin_email'
+ 				),
+ 				'ADI-usermeta-settings' => array(
+ 					'AD_Integration_additional_user_attributes',
+ 					'AD_Integration_usermeta_empty_overwrite',
+ 					'AD_Integration_show_attributes',
+ 					'AD_Integration_attributes_to_show',
+ 					'AD_Integration_syncback',
+ 					'AD_Integration_syncback_use_global_user',
+ 					'AD_Integration_syncback_global_user',
+ 					'AD_Integration_syncback_global_pwd'
+ 				),
+ 				'ADI-bulkimport-settings' => array(
+ 					'AD_Integration_bulkimport_enabled',
+ 					'AD_Integration_bulkimport_new_authcode',
+ 					'AD_Integration_bulkimport_security_groups',
+ 					'AD_Integration_bulkimport_user',
+ 					'AD_Integration_bulkimport_pwd'
+ 				)
+ 			);
+ 					
+ 			$this_page = $arrPost['option_page'];
+ 				
+			foreach ( $all_options[$this_page] as $option ) {
+				$val = false;
+				
+				if ( isset( $arrPost[$option] ) ) {
+					$val = $arrPost[$option];
+				}
+				
+				// Update if possible; otherwise delete
+				if ( $val ) {
+					update_site_option( $option, $val );
+				} else {
+					delete_site_option( $option );
+				}
+			}
+			
+			// let's load the new values
+			$this->_load_options();
+		}
+	}
+	
 	function login( $username, $password ) {
 		$this->adldap = @new BLSCI_adLDAP( array(
 			"base_dn" => $this->_base_dn, 
