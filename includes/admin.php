@@ -58,6 +58,8 @@ function blsciad_network_panel_render() {
 		
 		<?php if ( isset( $_GET['blsci_action'] ) && 'change_username' == $_GET['blsci_action'] ) : ?>
 			<?php blsciad_username_edit_render() ?>
+		<?php elseif ( isset( $_GET['blsci_action'] ) && 'resetall' == $_GET['blsci_action'] ) : ?>
+			<?php blsciad_reset_all_logs() ?>
 		<?php else : ?>
 			<?php blsci_logs_render() ?>
 		<?php endif ?>
@@ -544,6 +546,8 @@ function blsci_logs_render() {
 	
 	<p><?php _e( 'On this page, you can view the results of previous user migration attempts.', 'blsci-ad' ) ?></p>
 	
+	<p>You can reset all migration logs. Beware: there is no undo. <a class="button-secondary" href="<?php echo add_query_arg( 'blsci_action', 'resetall', $base_url ) ?>">Reset</a></p>
+	
 	<?php if ( $migrations->have_posts() ) : ?>
 		
 		<?php $pagination->setup_query( $migrations->migrations ) ?>
@@ -663,6 +667,50 @@ function blsci_logs_render() {
 		<p><?php _e( 'You haven\'t attempted any user migrations yet.', 'blsci-ad' ) ?></p>
 	<?php endif ?>
 	
+	<?php
+}
+
+function blsciad_reset_all_logs() {
+	global $wpdb;
+	?>
+	
+	<p>Resetting...</p>
+	
+	<?php
+	
+	// Call up all users
+	$users = $wpdb->get_col( $wpdb->prepare( "SELECT ID FROM $wpdb->users WHERE ID != 1" ) );
+	
+	foreach ( $users as $user ) {
+		$old_username 	  = get_user_meta( $user, 'blsci_deprecated_wp_user_login', true );
+		$old_usernicename = get_user_meta( $user, 'blsci_deprecated_wp_user_nicename', true );
+		
+		$update_vals = array();
+		
+		if ( $old_username )
+			$update_vals['user_login'] = $old_username;
+		
+		if ( $old_usernicename )
+			$update_vals['user_nicename'] = $old_usernicename;
+		
+		// Reset the username/nicename
+		if ( !empty( $update_vals ) ) {
+			$wpdb->update( $wpdb->users, $update_vals, array( 'ID' => $user ) );
+			
+			// Delete the old metadata
+			delete_user_meta( $user, 'blsci_deprecated_wp_user_login' );
+			delete_user_meta( $user, 'blsci_deprecated_wp_user_nicename' );
+		}
+	}
+	
+	// Now, delete all logs
+	$wpdb->query( $wpdb->prepare( "DELETE FROM $wpdb->posts WHERE post_type = 'blsci_ad_migration'" ) );
+	
+	$url = add_query_arg( array( 'page' => 'blsci-ad' ), network_admin_url( 'admin.php' ) );
+	
+	?>
+	
+	<p>Done! <a href="<?php echo $url ?>">Go back</a></p>
 	
 	<?php
 }
