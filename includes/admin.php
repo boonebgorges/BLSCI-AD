@@ -169,7 +169,13 @@ function blsciad_migrate_step() {
 	// on the first page, save the credentials
 	if ( empty( $_GET['start'] ) ) {
 		
-		$total_users = $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM $wpdb->users WHERE ID != 1 AND ID NOT IN  ($already_users_sql )" ) );
+		$total_users_sql = $wpdb->prepare( "SELECT COUNT(*) FROM $wpdb->users WHERE ID != 1" );
+		
+		if ( $already_users_sql ) {
+			$total_users_sql .= "AND ID NOT IN  ($already_users_sql )";
+		}
+		
+		$total_users = $wpdb->get_var( $total_users_sql );
 		
 		//$tud = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM $wpdb->users WHERE ID != 1 AND ID NOT IN ( $already_users_sql )" ) );
 		//echo '<pre>';var_dump( $tud ); die();
@@ -192,11 +198,9 @@ function blsciad_migrate_step() {
 		delete_option( 'blsci_members_to_go' );
 	}
 	
+	$already_users_clause = !empty( $already_users_sql ) ? "AND ID NOT IN ( " . $already_users_sql . " ) " : '';
 	
-	
-	$how_many = $wpdb->get_var( "SELECT COUNT(*) FROM $wpdb->users" );
-
-	$users_sql = $wpdb->prepare( "SELECT ID FROM $wpdb->users WHERE ID != 1 AND ID NOT IN ({$already_users_sql}) LIMIT %d, %d", $start, $per_page );
+	$users_sql = $wpdb->prepare( "SELECT ID FROM $wpdb->users WHERE ID != 1 $already_users_clause LIMIT %d, %d", $start, $per_page );
 	
 	$users = $wpdb->get_col( $users_sql );
 
