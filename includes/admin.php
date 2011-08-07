@@ -172,7 +172,7 @@ function blsciad_migrate_step() {
 		$total_users_sql = $wpdb->prepare( "SELECT COUNT(*) FROM $wpdb->users WHERE ID != 1" );
 		
 		if ( $already_users_sql ) {
-			$total_users_sql .= "AND ID NOT IN  ($already_users_sql )";
+			$total_users_sql .= " AND ID NOT IN  ($already_users_sql )";
 		}
 		
 		$total_users = $wpdb->get_var( $total_users_sql );
