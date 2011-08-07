@@ -186,7 +186,7 @@ function blsciad_migrate_step() {
 	
 	$already_users_clause = !empty( $already_users_sql ) ? "AND ID NOT IN ( " . $already_users_sql . " ) " : '';
 	
-	$users_sql = $wpdb->prepare( "SELECT ID FROM $wpdb->users WHERE ID != 1 $already_users_clause LIMIT %d, %d", $start, $per_page );
+	$users_sql = $wpdb->prepare( "SELECT ID FROM $wpdb->users WHERE ID != 1 $already_users_clause LIMIT 0, %d",  $per_page );
 	
 	$users = $wpdb->get_col( $users_sql );
 	
