@@ -184,8 +184,14 @@ function blsciad_migrate_step() {
 		update_option( 'blsciad_temp_creds', array( 'username' => $_POST['blsci-ad-username'], 'password' => $_POST['blsci-ad-password'] ) );
 	}
 	
+	$already_users_clause = !empty( $already_users_sql ) ? "AND ID NOT IN ( " . $already_users_sql . " ) " : '';
+	
+	$users_sql = $wpdb->prepare( "SELECT ID FROM $wpdb->users WHERE ID != 1 $already_users_clause LIMIT %d, %d", $start, $per_page );
+	
+	$users = $wpdb->get_col( $users_sql );
+	
 	// Is this the last page?
-	if ( $end >= $total_users ) {
+	if ( empty( $users ) ) {
 		// We're headed home
 		$migration_step_base = add_query_arg( 'status', 'finished', remove_query_arg( 'blsci_action', $migration_step_base ) );
 		
@@ -197,12 +203,6 @@ function blsciad_migrate_step() {
 		
 		delete_option( 'blsci_members_to_go' );
 	}
-	
-	$already_users_clause = !empty( $already_users_sql ) ? "AND ID NOT IN ( " . $already_users_sql . " ) " : '';
-	
-	$users_sql = $wpdb->prepare( "SELECT ID FROM $wpdb->users WHERE ID != 1 $already_users_clause LIMIT %d, %d", $start, $per_page );
-	
-	$users = $wpdb->get_col( $users_sql );
 
 	// For testing with Luke's account
 	// $users = array( 11 );
