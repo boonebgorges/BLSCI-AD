@@ -58,7 +58,7 @@ class BLSCI_adLDAP extends adLDAP {
 	
 		// Compatibility with older style Baruch email addresses
 		if ( empty( $user ) && false !== strpos( $email, '_' ) ) {
-			$email = str_replace( '_', ',', $email );
+			$email = str_replace( '_', '.', $email );
 			$user = $this->find_user_by( $email, 'mail' );
 		}
 		
