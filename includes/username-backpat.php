@@ -59,7 +59,7 @@ class BLSCI_AD_Username_Backpat {
 				
 		if ( !wp_check_password($password, $userdata->user_pass, $userdata->ID) ) {
 			
-			if ( !$user = $AD_Integration_plugin->ad_authenticate( $user, $userdata->user_login, $password ) )
+			if ( !$user = $AD_Integration_plugin->authenticate( $user, $userdata->user_login, $password ) )
 				return new WP_Error( 'incorrect_password', sprintf( __( '<strong>ERROR</strong>: The password you entered for the username <strong>%1$s</strong> is incorrect. <a href="%2$s" title="Password Lost and Found">Lost your password</a>?' ), $userdata->user_logun, site_url( 'wp-login.php?action=lostpassword', 'login' ) ) );
 			
 		}
