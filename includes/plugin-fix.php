@@ -24,6 +24,7 @@ class BLSCI_AD_Fix extends ADIntegrationPlugin {
 	 * Overrides the default constructor, to implement WP 3.1 network fixes
 	 */
 	function __construct() {
+	
 		global $wp_version, $wpmu_version, $wpdb, $wpmuBaseTablePrefix;
 		$wpmu_version = $wp_version;
 
@@ -56,6 +57,11 @@ class BLSCI_AD_Fix extends ADIntegrationPlugin {
 		add_action('admin_init', array(&$this, 'register_adi_settings'));
 		
 		add_action( is_multisite() ? 'network_admin_menu' : 'admin_menu', array(&$this, 'add_options_page' ) );
+		
+		if ( is_multisite() ) {
+			add_action( 'admin_menu', array( &$this, 'remove_non_ms_menu' ), 1000 );
+		}
+		
 		add_filter('contextual_help', array(&$this, 'contextual_help'), 10, 2);
 		
 		// DO WE HAVE LDAP SUPPORT?
@@ -109,6 +115,13 @@ class BLSCI_AD_Fix extends ADIntegrationPlugin {
 		$this->_all_user_attributes = $this->_get_user_attributes();
 	}
 	
+	function remove_non_ms_menu() {
+		remove_submenu_page( 'tools.php', 'active-directory-integration' );
+		
+		global $menu, $admin_page_hooks, $submenu;
+	//	var_dump( $menu, $admin_page_hooks, $submenu );
+	}
+	
 	
 	/**
 	 * Add the options page in a WP 3.1+ compatible way
@@ -122,12 +135,12 @@ class BLSCI_AD_Fix extends ADIntegrationPlugin {
 		if ( is_multisite() && is_super_admin()) {
 			// Network mode
 			if ( function_exists( 'add_submenu_page' ) ) {
-				add_submenu_page( 'settings.php', __( 'Active Directory Integration' ), __( 'Active Directory Integration' ), 'manage_options', $ad_integration_plugin_path . 'ad-integration.php', array(&$this, '_display_options_page') );
+				add_submenu_page( 'settings.php', __( 'Active Directory Integration' ), __( 'Active Directory Integration' ), 'manage_options', $ad_integration_plugin_path . 'ad-integration.php', array(&$this, 'display_options_page') );
 			}
 		} else {
 			// WordPress Standard
 			if ( function_exists( 'add_options_page' ) ) {
-				add_options_page( 'Active Directory Integration', 'Active Directory Integration', 'manage_options', $ad_integration_plugin_path . 'ad-integration.php', array(&$this, '_display_options_page') );
+				add_options_page( 'Active Directory Integration', 'Active Directory Integration', 'manage_options', $ad_integration_plugin_path . 'ad-integration.php', array(&$this, 'display_options_page') );
 			}
 		}
 	}
@@ -237,7 +250,7 @@ class BLSCI_AD_Fix extends ADIntegrationPlugin {
 }
 
 // Important! Instantiates the new class, overriding the previous plugin
-$AD_Integration_plugin = new BLSCI_AD_Fix;
+add_action( 'init', create_function( '', 'global $AD_Integration_plugin; $AD_Integration_plugin = new BLSCI_AD_Fix;' ), 99 );
 
 /**
  * An epic hack.
