@@ -12,9 +12,9 @@ class BLSCI_AD_Username_Backpat {
 		
 		// Intercept requests before they get to wp_authenticate_username_password		
 		remove_filter( 'authenticate', 'wp_authenticate_username_password', 20, 3 );
-		add_filter( 'authenticate', array( $this, 'maybe_swap_username' ), 10, 3 );
+		add_filter( 'authenticate', array( $this, 'maybe_swap_username' ), 15, 3 );
 	
-		remove_filter( 'authenticate', array( $AD_Integration_plugin, 'authenticate' ) );
+		remove_filter( 'authenticate', array( $AD_Integration_plugin, 'authenticate' ), 10, 3 );
 	}
 	
 	function maybe_swap_username( $user, $username, $password ) {
