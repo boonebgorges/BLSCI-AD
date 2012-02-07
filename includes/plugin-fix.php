@@ -116,7 +116,9 @@ class BLSCI_AD_Fix extends ADIntegrationPlugin {
 	}
 	
 	function remove_non_ms_menu() {
+		// AHHHHHHHHH
 		remove_submenu_page( 'tools.php', 'active-directory-integration' );
+		remove_submenu_page( 'options-general.php', 'active-directory-integration' );
 		
 		global $menu, $admin_page_hooks, $submenu;
 	//	var_dump( $menu, $admin_page_hooks, $submenu );
@@ -228,6 +230,71 @@ class BLSCI_AD_Fix extends ADIntegrationPlugin {
 			$this->_load_options();
 		}
 	}
+	
+	/**
+	 * Loads the options from WordPress-DB
+	 *
+	 * Overriding the AD plugin here because it doesn't know how to detect MS
+	 * Also get_site_option() now falls back on get_option() anyway, so nyah nyah nyah nyah
+	 */
+	protected function _load_options() {
+		$this->_log(ADI_LOG_INFO,'loading options (WPMU) ...');
+		
+		// Server (5)
+		$this->_domain_controllers 			= get_site_option('AD_Integration_domain_controllers');
+		$this->_port 						= get_site_option('AD_Integration_port');
+		$this->_use_tls 					= get_site_option('AD_Integration_use_tls');
+		$this->_network_timeout				= (int)get_site_option('AD_Integration_network_timeout');
+		$this->_base_dn						= get_site_option('AD_Integration_base_dn');
+
+		// User (13)
+		$this->_account_suffix		 		= get_site_option('AD_Integration_account_suffix');
+		$this->_append_suffix_to_new_users 	= get_site_option('AD_Integration_append_suffix_to_new_users');
+		$this->_auto_create_user 			= (bool)get_site_option('AD_Integration_auto_create_user');
+		$this->_auto_update_user 			= (bool)get_site_option('AD_Integration_auto_update_user');
+		$this->_auto_update_description		= (bool)get_site_option('AD_Integration_auto_update_description');
+		$this->_default_email_domain 		= get_site_option('AD_Integration_default_email_domain');
+		$this->_duplicate_email_prevention  = get_site_option('AD_Integration_duplicate_email_prevention');
+		$this->_prevent_email_change  		= (bool)get_site_option('AD_Integration_prevent_email_change');
+		$this->_display_name				= get_site_option('AD_Integration_display_name');
+		$this->_show_user_status			= (bool)get_site_option('AD_Integration_show_user_status');
+		$this->_enable_password_change      = get_site_option('AD_Integration_enable_password_change');
+		$this->_no_random_password			= (bool)get_site_option('AD_Integration_no_random_password');
+		$this->_auto_update_password		= (bool)get_site_option('AD_Integration_auto_update_password');
+		
+		// Authorization (3)
+		$this->_authorize_by_group 			= (bool)get_site_option('AD_Integration_authorize_by_group');
+		$this->_authorization_group 		= get_site_option('AD_Integration_authorization_group');
+		$this->_role_equivalent_groups 		= get_site_option('AD_Integration_role_equivalent_groups');
+		
+		// Security (6)
+		$this->_fallback_to_local_password	= get_site_option('AD_Integration_fallback_to_local_password');
+		$this->_max_login_attempts 			= (int)get_site_option('AD_Integration_max_login_attempts');
+		$this->_block_time 					= (int)get_site_option('AD_Integration_block_time');
+		$this->_user_notification	  		= (bool)get_site_option('AD_Integration_user_notification');
+		$this->_admin_notification			= (bool)get_site_option('AD_Integration_admin_notification');
+		$this->_admin_email					= get_site_option('AD_Integration_admin_email');
+
+		// User Meta (8)
+		$this->_additional_user_attributes	= get_site_option('AD_Integration_additional_user_attributes');
+		$this->_usermeta_empty_overwrite	= (bool)get_site_option('AD_Integration_usermeta_empty_overwrite');
+		$this->_show_attributes				= (bool)get_site_option('AD_Integration_show_attributes');
+		$this->_attributes_to_show			= get_site_option('AD_Integration_attributes_to_show');
+		$this->_syncback					= (bool)get_site_option('AD_Integration_syncback');
+		$this->_syncback_use_global_user	= (bool)get_site_option('AD_Integration_syncback_use_global_user');
+		$this->_syncback_global_user		= get_site_option('AD_Integration_syncback_global_user');
+		$this->_syncback_global_pwd			= get_site_option('AD_Integration_syncback_global_pwd');
+		
+		// Bulk Import (7)
+		$this->_bulkimport_enabled			= (bool)get_site_option('AD_Integration_bulkimport_enabled');
+		$this->_bulkimport_authcode 		= get_site_option('AD_Integration_bulkimport_authcode');
+		$this->_bulkimport_new_authcode		= (bool)get_site_option('AD_Integration_bulkimport_new_authcode');
+		$this->_bulkimport_security_groups	= get_site_option('AD_Integration_bulkimport_security_groups');
+		$this->_bulkimport_user				= get_site_option('AD_Integration_bulkimport_user');
+		$this->_bulkimport_pwd				= get_site_option('AD_Integration_bulkimport_pwd');
+		$this->_disable_users				= (bool)get_site_option('AD_Integration_disable_users');
+	}
+	
 	
 	function login( $username, $password ) {
 		$this->adldap = @new BLSCI_adLDAP( array(
